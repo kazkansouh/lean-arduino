@@ -1,4 +1,4 @@
-MODULE=main usart queue spi
+MODULE=main usart queue spi timer
 PROJECT=main
 
 OBJECTS=$(patsubst %,%.o,$(MODULE))

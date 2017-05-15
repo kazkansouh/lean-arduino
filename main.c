@@ -4,6 +4,7 @@
 
 #include "usart.h"
 #include "spi.h"
+#include "timer.h"
 
 #define DELAY_MS 500
 #define MYUBRR F_CPU/16/BAUD-1
@@ -33,6 +34,9 @@ int main (void) {
 
   /* enable interrupts, used for usart */
   sei();
+
+  /* initilise timer/counter, should be called after sei */
+  timer_init();
 
   /* initilise the usart and write boot message */
   usart_init(MYUBRR);
@@ -68,6 +72,9 @@ int main (void) {
 
       /* print number that is being written to SN74HC595 */
       usart_printf("Displaying: 0x%02X\n", counter);
+      {
+        usart_printf("Time: %d\n", timer_millis());
+      }
     }
   }
 }
