@@ -1,2 +1,10 @@
 # lean-arduino
-The beginnings of a simple c library for Arduino / atmega328p that does no rely on the Arduino/Wiring libraries. I've started this to give me more control over the timings.
+The beginnings of a simple c library for Arduino / ``atmega328p`` that does no rely on the Arduino/Wiring libraries. It is directly built using the AVR tool chain and the ``c`` library. 
+
+I've started this as while working with Arduino standard library it became hard to understand why some of the timings involving interrupts were not correct, so this project is to give me more understanding and control over the timings.
+
+# features
+
+Currently supported:
+* SPI in master mode (no interrupts)
+* USART (with interrupts)
