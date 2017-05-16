@@ -15,7 +15,10 @@
   pin3 |-> pin11 (MOSI)
   pin2 |-> pin10 (output/SS)
   pin1 |-> pin9 (output, controls led to report errors)
-  pin0 |-> pin8 (input pulled up, low blocks writing to usart)
+  pin0 |-> pin8 (ICR0)
+
+  PORTD
+  pin7 |-> pin7 (input pulled up, low blocks writing to usart)
 
   Connected to: SN74HC595
   Arduino pin13 (SCK) connected to SN74HC595 pin11 (SRCLK)
@@ -29,8 +32,8 @@ int main (void) {
   unsigned char counter = 0;
   /* set pin 1 and 2 of PORTB for output*/
   DDRB |= _BV(DDB1) | _BV(DDB2);
-  /* enable pullup for pin 0 of PORTB */
-  PORTB |= _BV(PORTB0);
+  /* enable pullup for pin 7 of PORTD */
+  PORTD |= _BV(PORTD7);
 
   /* enable interrupts, used for usart */
   sei();
@@ -53,8 +56,8 @@ int main (void) {
   PORTB |= _BV(PORTB2);
 
   while(1) {
-    /* check input on pin 1 of port b, if low, do nothing */
-    if (0x01 & PINB) {
+    /* check input on pin 7 of port d, if low, do nothing */
+    if (_BV(PORTD7) & PIND) {
       /* increment counter, allowing for wrap around */
       counter++;
 
