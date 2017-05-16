@@ -4,19 +4,20 @@
 
 /* define prescaler for timer 0 of 64 */
 #define PRESCALER _BV(CS01) | _BV(CS00)
+/* define the 8bit wraparound value for timer */
+#define COUNTER_MAX 250
 /*
-  64 cycles in a increment, 256 increment to overflow timer 0
+  64 cycles in a increment, 250 increment to overflow timer 0
 
-  each overflow is 16384 cycles
+  each overflow is 16000 cycles
 
-  clock at 16MHz, so 976.5625 overflows in a second
+  clock at 16MHz, so 1000 overflows in a second
 
-  1000/976.5625 = 1.024 ticks to a millisecond
- */
-#define TICKS_TO_MILLISECOND 1.024
+  i.e. 1 overflow is 1 millisecond
+*/
 
 /*
-  overflows every 4398046 seconds (51 years)
+  overflows every (49.7 days)
  */
 volatile uint32_t ticks = 0;
 
@@ -24,18 +25,20 @@ void timer_init(void) {
   /* initilise timer 0 counter with 0 */
   TCNT0 = 0;
   /* enable overflow interrupt on timer 0 */
-  TIMSK0 = _BV(TOIE0);
-  /* setup timer 0 with no pwm and normal counter operation */
-  TCCR0A = 0;
-  /* setup timer 0 with prescaler of 64, i.e. 976.5625 TOV in a
-     second. this line enables the timer */
+  TIMSK0 = _BV(OCF0A);
+  /* setup timer 0 with no pwm and ctc operation */
+  TCCR0A = _BV(WGM01);
+  /* set a comparer of 250 */
+  OCR0A = COUNTER_MAX;
+  /* setup timer 0 with prescaler of 64. this line enables the
+     timer */
   TCCR0B = PRESCALER;
 }
 
 uint32_t timer_millis(void) {
-  return ticks * TICKS_TO_MILLISECOND;
+  return ticks;
 }
 
-ISR(TIMER0_OVF_vect) {
+ISR(TIMER0_COMPA_vect) {
   ticks++;
 }

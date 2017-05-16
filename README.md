@@ -8,4 +8,4 @@ I've started this as while working with Arduino standard library it became hard 
 Currently supported:
 * SPI in master mode (blocking, i.e. w/o interrupts)
 * USART (with interrupts)
-* timer (with interrupts)
+* millisecond timer (with interrupts)

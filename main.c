@@ -72,9 +72,7 @@ int main (void) {
 
       /* print number that is being written to SN74HC595 */
       usart_printf("Displaying: 0x%02X\n", counter);
-      {
-        usart_printf("Time: %d\n", timer_millis());
-      }
+      usart_printf("Time: %d\n", timer_millis());
     }
   }
 }
