@@ -63,9 +63,9 @@ int main (void) {
 
       /* set ss to low, write data to SN74HC595, then ss high to store
          data */
-      PORTB &= ~_BV(PORTD2);
+      PORTB &= ~_BV(PORTB2);
       spi_master_transmit(counter);
-      PORTB |= _BV(PORTD2);
+      PORTB |= _BV(PORTB2);
 
       _delay_ms(DELAY_MS);
       /* clear output on pin1 so led is off, usart driver might set if
