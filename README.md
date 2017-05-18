@@ -9,3 +9,4 @@ Currently supported:
 * SPI in master mode (blocking, i.e. w/o interrupts)
 * USART (with interrupts)
 * millisecond timer (with interrupts)
+* microsecond pulse width detection (with interrupts using ICP1/ICR1)
