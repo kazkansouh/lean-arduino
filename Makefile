@@ -1,4 +1,4 @@
-MODULE=main usart queue spi timer icr-pulse pwm
+MODULE=main lib/usart lib/queue lib/spi lib/timer lib/icr-pulse lib/pwm
 PROJECT=main
 
 OBJECTS=$(patsubst %,%.o,$(MODULE))
@@ -6,7 +6,7 @@ OBJECTS=$(patsubst %,%.o,$(MODULE))
 SERIALBAUD=57600
 
 CC=avr-gcc
-CFLAGS=-Os -DF_CPU=16000000UL -DBAUD=$(SERIALBAUD) -mmcu=atmega328p -Wall -Wpedantic -Werror
+CFLAGS=-Os -DF_CPU=16000000UL -DBAUD=$(SERIALBAUD) -mmcu=atmega328p -Wall -Wpedantic -Werror -Ilib
 LD=avr-gcc
 LDFLAGS=-mmcu=atmega328p
 
