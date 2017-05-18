@@ -1,4 +1,4 @@
-MODULE=main usart queue spi timer icr-pulse
+MODULE=main usart queue spi timer icr-pulse pwm
 PROJECT=main
 
 OBJECTS=$(patsubst %,%.o,$(MODULE))

@@ -6,6 +6,7 @@
 #include "spi.h"
 #include "timer.h"
 #include "icr-pulse.h"
+#include "pwm.h"
 
 #define DELAY_MS 500
 #define MYUBRR F_CPU/16/BAUD-1
@@ -21,6 +22,7 @@
   PORTD
   pin7 |-> pin7 (input pulled up, low blocks writing to usart)
   pin6 |-> pin6 (output, trigger HC-SR04)
+  pin3 |-> pin3 (OC2B, connected to led)
 
   Connected to: SN74HC595
   Arduino pin13 (SCK) connected to SN74HC595 pin11 (SRCLK)
@@ -47,7 +49,10 @@ int main (void) {
   /* enable pullup for pin 7 of PORTD */
   PORTD |= _BV(PORTD7);
 
- /* enable interrupts, used for usart */
+  /* initilise pwm  */
+  pwm_init();
+
+  /* enable interrupts, used for usart */
   sei();
 
   /* initilise timer/counter, should be called after sei */
@@ -109,6 +114,7 @@ int main (void) {
          data */
       PORTB &= ~_BV(PORTB2);
       spi_master_transmit(depth);
+      pwm_set_value(depth);
       PORTB |= _BV(PORTB2);
     }
 
