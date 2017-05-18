@@ -7,8 +7,18 @@
 #include "timer.h"
 #include "icr-pulse.h"
 
+#include "pins.h"
+
 #define DELAY_MS 500
 #define MYUBRR F_CPU/16/BAUD-1
+
+#define SCK       13
+#define MOSI      11
+#define SS        10
+#define ERROR_LED 9
+#define ECHO      8
+#define NO_REPORT 7
+#define TRIGGER   6
 
 /*
   PORTB
@@ -40,12 +50,10 @@ int main (void) {
   uint8_t depth = 0;
   double accum = 0;
 
-  /* set pin 1 and 2 of PORTB for output*/
-  DDRB |= _BV(DDB1) | _BV(DDB2);
-  /* set pin 6 of PORTD for output*/
-  DDRD |= _BV(DDD6);
-  /* enable pullup for pin 7 of PORTD */
-  PORTD |= _BV(PORTD7);
+  setMode(ERROR_LED, output);
+  setMode(SS, output);
+  setMode(TRIGGER, output);
+  setMode(NO_REPORT, input_pullup);
 
  /* enable interrupts, used for usart */
   sei();
@@ -58,14 +66,14 @@ int main (void) {
   usart_printf("Hello World\n");
 
   /* set ss high */
-  PORTB |= _BV(PORTB2);
+  writePin(SS,true);
   spi_master_init();
 
   /* set ss to low, write data to SN74HC595, then ss high to store
      data */
-  PORTB &= ~_BV(PORTB2);
+  writePin(SS,false);
   spi_master_transmit(0x00);
-  PORTB |= _BV(PORTB2);
+  writePin(SS,true);
 
   while(1) {
     uint32_t now = timer_millis();
@@ -75,9 +83,9 @@ int main (void) {
       /* enable pin change interrupt */
       icr_pulse_enable();
       /* set portd pin 6 high for 10 microseconds */
-      PORTD |= _BV(PORTD6);
+      writePin(TRIGGER,true);
       _delay_us(10);
-      PORTD &= ~_BV(PORTD6);
+      writePin(TRIGGER,false);
     }
 
     if (icr_pulse_done) {
@@ -107,16 +115,16 @@ int main (void) {
 
       /* set ss to low, write data to SN74HC595, then ss high to store
          data */
-      PORTB &= ~_BV(PORTB2);
+      writePin(SS,false);
       spi_master_transmit(depth);
-      PORTB |= _BV(PORTB2);
+      writePin(SS,true);
     }
 
     if (now >= next_time_print) {
       next_time_print += 1000;
 
       /* check input on pin 7 of port d, if low, do nothing */
-      if (_BV(PORTD7) & PIND) {
+      if (readPin(NO_REPORT)) {
        /* print number that is being written to SN74HC595 */
         usart_printf("Displaying: 0x%02X\n", depth);
         usart_printf("Time: %lu\n", now);
