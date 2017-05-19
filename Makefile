@@ -6,7 +6,7 @@ OBJECTS=$(patsubst %,%.o,$(MODULE))
 SERIALBAUD=57600
 
 CC=avr-gcc
-CFLAGS=-Os -DF_CPU=16000000UL -DBAUD=$(SERIALBAUD) -mmcu=atmega328p -Wall -Wpedantic -Werror -Ilib
+CFLAGS=-Os -DF_CPU=16000000UL -DBAUD=$(SERIALBAUD) -DUSE_PRINTF -DPIN_ERROR=9 -mmcu=atmega328p -Wall -Wpedantic -Werror -Ilib
 LD=avr-gcc
 LDFLAGS=-mmcu=atmega328p
 
