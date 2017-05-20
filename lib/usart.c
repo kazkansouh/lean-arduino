@@ -31,32 +31,9 @@ void usart_init(uint16_t ubrr) {
   UBRR0H = (uint8_t)(ubrr>>8);
   UBRR0L = (uint8_t)(ubrr & 0xFF);
   /* Enable receiver and transmitter */
-  UCSR0B = _BV(RXEN0) | _BV(TXEN0) | _BV(TXCIE0) | _BV(RXCIE0);
+  UCSR0B = _BV(RXEN0) | _BV(TXEN0) | _BV(RXCIE0);
   /* Set frame format: 8data, 1stop bit, no parity */
   UCSR0C = (3<<UCSZ00);
-}
-
-inline
-void usart_write() {
-  uint8_t data;
-  usart_is_sending = true;
-  if (queue_dequeue(usart_sending,
-                    SEND_BUFFER_SIZE,
-                    usart_sending_head,
-                    &usart_sending_tail,
-                    &data)) {
-    /* Wait for empty transmit buffer */
-    while ( !( UCSR0A & (1<<UDRE0)) ) {
-#if defined PIN_ERROR
-      /* Should not happen as called from interrupt */
-      writePin(PIN_ERROR, true);
-#endif
-    }
-    /* Put data into buffer, sends the data */
-    UDR0 = data;
-  } else {
-    usart_is_sending = false;
-  }
 }
 
 /*
@@ -83,9 +60,9 @@ void usart_write_bytes(const uint8_t* const data, uint16_t length) {
         r = false;
       }
     }
-    if (!usart_is_sending) {
-      usart_write();
-    }
+    /* unmask the usart data register interrupt, triggers firing of
+       the the USART_UDRE_vect ISR */
+    UCSR0B |= _BV(UDRIE0);
   }
 }
 
@@ -119,8 +96,19 @@ bool usart_get_char(uint8_t* data) {
                        data);
 }
 
-ISR(USART_TX_vect) {
-  usart_write();
+ISR(USART_UDRE_vect) {
+  uint8_t data;
+  if (queue_dequeue(usart_sending,
+                    SEND_BUFFER_SIZE,
+                    usart_sending_head,
+                    &usart_sending_tail,
+                    &data)) {
+    /* Put data into buffer, sends the data */
+    UDR0 = data;
+  } else {
+    /* mask the interrupt */
+    UCSR0B &= ~_BV(UDRIE0);
+  }
 }
 
 ISR(USART_RX_vect) {
