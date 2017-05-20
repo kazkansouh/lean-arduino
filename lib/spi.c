@@ -29,24 +29,24 @@ void spi_master_transmit_16(uint16_t i_data) {
     ;
 }
 
-void spi_master_transmit_32(uint32_t i_data) {
+void spi_master_transmit_32(const uint32_t* const pi_data) {
   /* Transmit high byte */
-  SPDR = i_data >> 24;
+  SPDR = ((const uint8_t* const)pi_data)[3];
   /* Wait for transmission complete */
   while(!(SPSR & (1<<SPIF)))
     ;
   /* Transmit next byte */
-  SPDR = (i_data >> 16) & 0xFF;
+  SPDR = ((const uint8_t* const)pi_data)[2];
   /* Wait for transmission complete */
   while(!(SPSR & (1<<SPIF)))
     ;
   /* Transmit next byte */
-  SPDR = (i_data >> 8) & 0xFF;
+  SPDR = ((const uint8_t* const)pi_data)[1];
   /* Wait for transmission complete */
   while(!(SPSR & (1<<SPIF)))
     ;
   /* Transmit low byte */
-  SPDR = i_data & 0xFF;
+  SPDR = ((const uint8_t* const)pi_data)[0];
   /* Wait for transmission complete */
   while(!(SPSR & (1<<SPIF)))
     ;
