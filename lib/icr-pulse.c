@@ -30,6 +30,8 @@ void icr_pulse_disable(void) {
   /* initilise the state tracking variables */
   icr_pulse_error = false;
   icr_pulse_done = false;
+  /* timer1 in normal mode */
+  TCCR1A = 0;
   /* disable timer1 and ICR settings */
   TCCR1B = 0;
   /* mask all timer1 interrupts */
