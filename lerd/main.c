@@ -43,7 +43,7 @@ int main (void) {
   uint32_t next_ui_update = 0;
   uint32_t next_clock_tick = 0;
   uint32_t next_time_scan = 0;
-  uint8_t depth = 0;
+  uint16_t cm = 100;
 
 #if defined PIN_ERROR
   setMode(PIN_ERROR,output);
@@ -60,16 +60,12 @@ int main (void) {
 
   /* initilise the usart and write boot message */
   usart_init(MYUBRR);
-  usart_printf("Hello World\n");
 
   /* initilise the screen */
   screen_init();
   screen_clear();
   screen_render();
   screen_enable();
-
-  /* enable outputs on SN74HC595 */
-  writePin(OE,false);
 
   while(1) {
     uint32_t now = timer_millis();
@@ -85,7 +81,7 @@ int main (void) {
 
     /* send an echo pulse */
     if (now >= next_time_scan) {
-      next_time_scan += 100;
+      next_time_scan += 123;
       /* enable pin change interrupt */
       icr_pulse_enable();
       /* set trigger high for 10 microseconds */
@@ -95,40 +91,22 @@ int main (void) {
     }
 
     if (icr_pulse_done) {
-      double cm = icr_pulse_value/58;
-      usart_printf("Depth: %03d\n", (uint16_t)cm);
-      if (cm < 10) {
-        depth = 0x01;
-      } else if (cm < 15) {
-        depth = 0x03;
-      } else if (cm < 20) {
-        depth = 0x07;
-      } else if (cm < 25) {
-        depth = 0x0F;
-      } else if (cm < 30) {
-        depth = 0x1F;
-      } else if (cm < 35) {
-        depth = 0x3F;
-      } else if (cm < 45) {
-        depth = 0x7F;
-      } else {
-        depth = 0xFF;
-      }
-
+      cm = icr_pulse_value / 58;
       icr_pulse_done = false;
     }
 
     if (icr_pulse_error) {
-      usart_printf("Error\n");
+      /* todo: report error */
+      icr_pulse_error = false;
     }
 
     if (now >= next_ui_update) {
-      next_ui_update += 1000;
+      next_ui_update += cm * 10;
 
       screen_update();
-      /* screen_usart_dump(); */
-      usart_printf("D: %02X\n", depth);
+      screen_usart_dump();
     }
+
     screen_render();
   }
 }

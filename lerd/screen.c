@@ -11,36 +11,6 @@
 #define ROWS    10
 #define COLUMNS 20
 
-/* double buffering of data buffer, lower COLUMNS bits of each row
-   define the bitmap of the row */
-uint32_t data[ROWS];
-uint32_t data2[ROWS];
-
-bool b_screen_enable_scroll = true;
-
-void screen_init(void) {
-  /* set slave select as output */
-  setMode(PIN_SS, output);
-  /* enable spi master */
-  spi_master_init();
-  /* disable output on screen */
-  writePin(PIN_OE,true);
-  /* set output enable as output */
-  setMode(PIN_OE, output);
-}
-
-void screen_enable(void) {
-  /* enable output on screen */
-  writePin(PIN_OE,false);
-}
-
-void screen_clear(void) {
-  int i;
-  for (i = 0; i < ROWS; i++) {
-    data[i] = 0x00055555;
-  }
-}
-
 /*
   Format of uint32 that is written to screen:
 
@@ -64,20 +34,60 @@ void screen_clear(void) {
 
   This uint32_t should be written 10 times, each with a different Z
   set high.
+
+  The below two variables define the uint32's that are written to the
+  screen. Two are used, so that it allows for double buffering,
+  i.e. data2 is copied to data when ready to be displayed.
 */
+uint32_t data[ROWS];
+uint32_t data2[ROWS];
+
+#define INITIAL_PATTERN(row) (0x15555400 | (1 << row))
+
+/* pre-calculated row selectors */
+const uint16_t rowselector[ROWS] = {
+  (1 << 0),  (1 << 1),  (1 << 2),  (1 << 3),  (1 << 4),
+  (1 << 5),  (1 << 6),  (1 << 7),  (1 << 8),  (1 << 9)
+};
+
+bool b_screen_enable_scroll = true;
+
+void screen_init(void) {
+  /* set slave select as output */
+  setMode(PIN_SS, output);
+  /* enable spi master */
+  spi_master_init();
+  /* disable output on screen */
+  writePin(PIN_OE,true);
+  /* set output enable as output */
+  setMode(PIN_OE, output);
+}
+
+void screen_enable(void) {
+  /* enable output on screen */
+  writePin(PIN_OE,false);
+}
+
+/*
+  The initial pattern sets the row bit, this is to save having to
+  compute it again later.
+*/
+void screen_clear(void) {
+  int i;
+  for (i = 0; i < ROWS; i++) {
+    data[i] = INITIAL_PATTERN(i);
+  }
+}
+
 /* define 4 null bytes */
 const uint32_t i_null = 0;
 
 void screen_render(void) {
   int i;
   for (i = 0; i < ROWS; i++) {
-    /* shift the display buffer along by 10 bits and set the row
-       selector bit in the lower 10 bits */
-    uint32_t row = data[i] << 10 | (1 << i);
-
     /* write the current row to the 74HC595 */
     writePin(PIN_SS, false);
-    spi_master_transmit_32(&row);
+    spi_master_transmit_32(data + i);
     writePin(PIN_SS, true);
     /* small delay to allow the leds to illuminate */
     _delay_us(10);
@@ -100,12 +110,19 @@ void screen_update(void) {
   memcpy(data2, data, sizeof(uint32_t) * ROWS);
   j = (j + 1) % 5;
   for (i = 0; i < ROWS; i++) {
+    volatile uint16_t* ptr = (uint16_t*)(data2 + i);
+    /* mask the row selector */
+    *ptr &= 0xFC00;
+    /* shit all bits by 1 to scroll the screen */
     data2[i] <<= 1;
+    /* set bit 10 */
     if (i >=5) {
-      data2[i] |= i-5 > ((j + 3) % 5);
+      *ptr |= (i-5 > ((j + 3) % 5)) << 10;
     } else {
-      data2[i] |= i > j;
+      *ptr |= (i > j) << 10;
     }
+    /* set the row selector */
+    *ptr |= rowselector[i];
   }
 
   memcpy(data, data2, sizeof(uint32_t) * ROWS);
@@ -120,10 +137,10 @@ void screen_usart_dump() {
 
   for (j = 0; j < ROWS; j++) {
     dump[i++] = 0xFF;
-    dump[i++] = data[j] >> 24;
-    dump[i++] = (data[j] >> 16) & 0xFF;
-    dump[i++] = (data[j] >> 8) & 0xFF;
-    dump[i++] = data[j] & 0xFF;
+    dump[i++] = ((uint8_t*)(data + j))[3];
+    dump[i++] = ((uint8_t*)(data + j))[2];
+    dump[i++] = ((uint8_t*)(data + j))[1];
+    dump[i++] = ((uint8_t*)(data + j))[0];
   }
 
   usart_write_bytes(dump,(5 * ROWS) + 1);
