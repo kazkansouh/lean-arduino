@@ -18,7 +18,8 @@
 #define SS        10
 #define ERROR_LED 9
 #define ECHO      8
-#define NO_REPORT 7
+#define OE        7
+#define NO_REPORT 5
 #define TRIGGER   6
 
 /*
@@ -56,6 +57,8 @@ int main (void) {
   setMode(SS, output);
   setMode(TRIGGER, output);
   setMode(NO_REPORT, input_pullup);
+  writePin(OE,true);
+  setMode(OE,output);
 
   /* initilise pwm  */
   pwm_init();
@@ -79,6 +82,9 @@ int main (void) {
   writePin(SS,false);
   spi_master_transmit(0x00);
   writePin(SS,true);
+
+  /* enable outputs on SN74HC595 */
+  writePin(OE,false);
 
   while(1) {
     uint32_t now = timer_millis();
