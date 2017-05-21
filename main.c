@@ -31,15 +31,16 @@
   pin0 |-> pin8 (ICP1, with external 10k pulldown)
 
   PORTD
-  pin7 |-> pin7 (input pulled up, low blocks writing to usart)
+  pin7 |-> pin7 (output, low to enable outputs on SN74CH595)
   pin6 |-> pin6 (output, trigger HC-SR04)
+  pin5 |-> pin5 (input pulled up, low blocks writing to usart)
   pin3 |-> pin3 (OC2B, connected to led)
 
   Connected to: SN74HC595
   Arduino pin13 (SCK) connected to SN74HC595 pin11 (SRCLK)
   Arduino pin11 (MOSI) connected to SN74HC595 pin14 (SER)
   Arduino pin10 connected to SN74HC595 pin12 (RCLK)
-  SN74HC595 pin13 low
+  Arduino pin7 connected to SN74HC595 pin13 (OE)
   SN74HC595 pin10 high
 
   Connected to: HC-SR04
@@ -51,7 +52,6 @@ int main (void) {
   uint32_t next_time_print = 0;
   uint32_t next_time_scan = 0;
   uint8_t depth = 0;
-  double accum = 0;
 
   setMode(ERROR_LED, output);
   setMode(SS, output);
@@ -90,7 +90,7 @@ int main (void) {
     uint32_t now = timer_millis();
 
     if (now >= next_time_scan) {
-      next_time_scan += 10;
+      next_time_scan += 123;
       /* enable pin change interrupt */
       icr_pulse_enable();
       /* set portd pin 6 high for 10 microseconds */
@@ -100,10 +100,7 @@ int main (void) {
     }
 
     if (icr_pulse_done) {
-      double cm = icr_pulse_value/58;
-      accum += cm;
-      cm = accum / 10;
-      accum -= cm;
+      uint16_t cm = icr_pulse_value/58;
       if (cm < 10) {
         depth = 0x01;
       } else if (cm < 15) {
@@ -130,6 +127,11 @@ int main (void) {
       spi_master_transmit(depth);
       pwm_set_value(depth);
       writePin(SS,true);
+    }
+
+    if (icr_pulse_error) {
+      icr_pulse_error = false;
+      usart_printf("Error\n");
     }
 
     if (now >= next_time_print) {
