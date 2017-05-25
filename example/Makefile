@@ -1,4 +1,14 @@
-MODULE=main lib/usart lib/queue lib/spi lib/timer lib/icr-pulse lib/pwm
+LIBDIR=../lib
+
+MODULE=\
+	main\
+	$(LIBDIR)/usart\
+	$(LIBDIR)/queue\
+	$(LIBDIR)/spi\
+	$(LIBDIR)/timer\
+	$(LIBDIR)/icr-pulse\
+	$(LIBDIR)/pwm
+
 PROJECT=main
 
 OBJECTS=$(patsubst %,%.o,$(MODULE))
@@ -6,7 +16,16 @@ OBJECTS=$(patsubst %,%.o,$(MODULE))
 SERIALBAUD=57600
 
 CC=avr-gcc
-CFLAGS=-Os -DF_CPU=16000000UL -DBAUD=$(SERIALBAUD) -DUSE_PRINTF -DPIN_ERROR=9 -mmcu=atmega328p -Wall -Wpedantic -Werror -Ilib
+CFLAGS=\
+	-Os\
+	-DF_CPU=16000000UL\
+	-DBAUD=$(SERIALBAUD)\
+	-DUSE_PRINTF -DPIN_ERROR=9\
+	-mmcu=atmega328p\
+	-Wall\
+	-Wpedantic\
+	-Werror\
+	-I$(LIBDIR)
 LD=avr-gcc
 LDFLAGS=-mmcu=atmega328p
 
