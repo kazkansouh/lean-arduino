@@ -22,6 +22,13 @@
 #define _pinToPort_14 B
 #define _pinToPort_15 B
 
+#define _pinToPort_A0 C
+#define _pinToPort_A1 C
+#define _pinToPort_A2 C
+#define _pinToPort_A3 C
+#define _pinToPort_A4 C
+#define _pinToPort_A5 C
+
 #define _pinToPort(pin) _pinToPort_ ## pin
 
 #define _SUBTRACT_8_8 0
@@ -35,9 +42,20 @@
 
 #define _SUBTRACT(n,m) _SUBTRACT_ ## n ## _ ## m
 
+#define _portCToPin_A0 0
+#define _portCToPin_A1 1
+#define _portCToPin_A2 2
+#define _portCToPin_A3 3
+#define _portCToPin_A4 4
+#define _portCToPin_A5 5
+
+#define _portCToPin(n) _portCToPin_ ## n
+
 #define _pinPortToPin_B_AUX(pin) _CAT(B, pin)
 #define _pinPortToPin_B(pin) _pinPortToPin_B_AUX(_SUBTRACT(pin, 8))
 #define _pinPortToPin_D(pin) _CAT(D, pin)
+#define _pinPortToPin_C_AUX(pin) _CAT(C, pin)
+#define _pinPortToPin_C(pin) _pinPortToPin_C_AUX(_portCToPin(pin))
 
 #define _pinPortToPin(pin,port) _CAT2(_pinPortToPin_,port,pin)
 
