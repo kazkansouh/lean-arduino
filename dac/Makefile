@@ -1,7 +1,9 @@
 LIBDIR=../lib
 
 MODULE=\
-	main
+	main\
+	ext\
+	hello
 
 PROJECT=main
 
@@ -24,6 +26,9 @@ LD=avr-gcc
 LDFLAGS=-mmcu=atmega328p
 
 default: $(PROJECT).hex
+
+hello.o: hello-8u-full.raw
+	avr-objcopy -I binary -O elf32-avr -B avr:5 $< $@
 
 $(PROJECT): $(OBJECTS)
 
