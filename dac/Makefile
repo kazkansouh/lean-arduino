@@ -2,7 +2,6 @@ LIBDIR=../lib
 
 MODULE=\
 	main\
-	ext\
 	hello
 
 PROJECT=main
@@ -28,7 +27,9 @@ LDFLAGS=-mmcu=atmega328p
 default: $(PROJECT).hex
 
 hello.o: hello-8u-full.raw
-	avr-objcopy -I binary -O elf32-avr -B avr:5 $< $@
+	avr-objcopy -I binary -O elf32-avr -B avr:5 \
+	  --rename-section .data=.progmem.data,alloc,load,readonly,data,contents \
+	  $< $@
 
 $(PROJECT): $(OBJECTS)
 
