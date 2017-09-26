@@ -2,6 +2,7 @@ LIBDIR=../lib
 
 MODULE=\
 	main\
+	$(LIBDIR)/usart_p\
 	$(LIBDIR)/usart\
 	$(LIBDIR)/queue\
 	$(LIBDIR)/spi\

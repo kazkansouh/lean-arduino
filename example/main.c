@@ -2,6 +2,7 @@
 #include <avr/interrupt.h>
 #include <util/delay.h>
 
+#include "usart_p.h"
 #include "usart.h"
 #include "spi.h"
 #include "timer.h"
@@ -71,7 +72,7 @@ int main (void) {
 
   /* initilise the usart and write boot message */
   usart_init(MYUBRR);
-  usart_printf("Hello World\n");
+  usart_printf_P(PSTR("Hello World\n"));
 
   /* set ss high */
   writePin(SS,true);
