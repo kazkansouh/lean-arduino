@@ -2,6 +2,7 @@
 #define _SPI_H
 
 #include <stdint.h>
+#include <avr/io.h>
 
 void spi_master_init(void);
 void spi_master_transmit_16(uint16_t i_data);
