@@ -156,8 +156,9 @@ uint8_t fat32_cluster_read(SSDFATCard* p_sdfatcard,
 */
 static
 uint32_t fat32_cluster_lookup(SSDFATCard* p_sdfatcard, uint32_t ui_cluster) {
-  uint32_t ui_sector = ui_cluster / 512;
-  uint16_t ui_sector_offset = (ui_cluster % 512) * 4;
+  uint32_t ui_sector = ui_cluster / 128; /* 128 is the number of
+                                            clusters in a sector */
+  uint16_t ui_sector_offset = (ui_cluster % 128) * 4;
   uint8_t r;
   uint32_t ui_cluster_value;
 
@@ -276,6 +277,7 @@ uint8_t fat32_lfn_checksum(const uint8_t *pch_FCBName) {
    return ui_sum;
 }
 
+#if defined(DEBUG)
 /*
   Lists a directory on a fat32 file system. The cluster is the index
   of the directory file.
@@ -403,6 +405,7 @@ uint8_t fat32_directory_list(SSDFATCard* p_sdfatcard, uint32_t ui_cluster) {
 
   return r;
 }
+#endif
 
 /*
   checks if a filename matches a raw (11 byte, space padded,
