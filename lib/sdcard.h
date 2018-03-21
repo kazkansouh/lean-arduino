@@ -36,6 +36,17 @@ uint8_t sdcard_mbr_read(SSDCard* const p_sdcard);
 uint8_t sdcard_sector_read(SSDCard* const p_sdcard, const uint32_t ui_sector);
 
 /*
+  generic read, no buffering is provided.
+*/
+uint8_t sdcard_sector_read_begin(SSDCard* const p_sdcard, const uint32_t ui_sector);
+
+/*
+  Cleanup after begin call, should only be called once the expected
+  number of bytes (without crc) is read from the spi bus.
+*/
+uint8_t sdcard_send_command_frame_data_end();
+
+/*
   utility function for extracting bits from a sequence of bytes. used
   for extracting data from the CSD and CID registers.
 */

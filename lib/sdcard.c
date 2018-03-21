@@ -195,10 +195,85 @@ uint8_t sdcard_send_command_frame_data(const uint8_t cmd,
 }
 
 /*
+  Begins a non-buffered read. Send a command frame over SPI to the SD
+  card, if timeout occours the msb will be set.
+
+  The caller is expected to directly read the bytes from the spi bus,
+  e.g.
+
+    /\* read data *\/
+    size_t i;
+    for (i = 0; i < buffer_len; i++) {
+      buffer[i] = spi_master_transmit(0xFF);
+    }
+
+  After notify the _end varient of this function after required
+  number of bytes is returned.
+*/
+static
+uint8_t sdcard_send_command_frame_data_begin(const uint8_t cmd,
+                                             const uint8_t arg1,
+                                             const uint8_t arg2,
+                                             const uint8_t arg3,
+                                             const uint8_t arg4,
+                                             const uint8_t crc) {
+  uint32_t timeout = timer_millis() + TIMEOUT_MS;
+  uint8_t r = 0;
+
+  /* drive cs low to card will receive command */
+  writePin(CHIP_SELECT,false);
+
+  /* send command frame */
+  spi_master_transmit(cmd);
+  spi_master_transmit(arg1);
+  spi_master_transmit(arg2);
+  spi_master_transmit(arg3);
+  spi_master_transmit(arg4);
+  spi_master_transmit(crc);
+
+  /* wait for result */
+  while ((r = spi_master_transmit(0xFF)) & 0x80 &&
+         timer_millis() < timeout) {}
+
+  if (r != 0) {
+    /* drive cs high */
+    writePin(CHIP_SELECT,true);
+    return r;
+  }
+
+  /* wait for result token */
+  timeout = timer_millis() + TIMEOUT_MS;
+  while (spi_master_transmit(0xFF) != 0xFE &&
+         timer_millis() < timeout) {}
+  if (timer_millis() >= timeout) {
+    /* drive cs high */
+    writePin(CHIP_SELECT,true);
+    return 0xFF;
+  }
+
+  return r;
+}
+
+/*
+  Cleanup after begin call, should only be called once the expected
+  number of bytes (without crc) is read from the spi bus.
+*/
+uint8_t sdcard_send_command_frame_data_end() {
+  /* read two crc bytes */
+  spi_master_transmit(0xFF);
+  spi_master_transmit(0xFF);
+
+  /* drive cs high */
+  writePin(CHIP_SELECT,true);
+
+  return 0x00;
+}
+
+/*
   Reads the identified sector from the SC Card.
 
   The sector is placed into the SDCard buffer, and the associated
-  sector is written.
+  sector is saved into the sdcard stucture.
 */
 uint8_t sdcard_sector_read(SSDCard* const p_sdcard,
                            const uint32_t ui_sector) {
@@ -237,6 +312,47 @@ uint8_t sdcard_sector_read(SSDCard* const p_sdcard,
 }
 
 /*
+  Reads the identified sector from the SC Card without using internal
+  buffer.
+
+  The sector is placed into the SDCard buffer, and the associated
+  sector is written.
+*/
+uint8_t sdcard_sector_read_begin(SSDCard* const p_sdcard,
+                                 const uint32_t ui_sector) {
+  uint8_t r;
+
+  /* sector is already in memeory */
+  if (ui_sector == p_sdcard->ui_sector) {
+    return 0;
+  }
+
+  /* requested sector is larger than max */
+  if (ui_sector >= p_sdcard->ui_sectors) {
+    printf_P("Sector 0x%lX is larger than size supported by card: 0x%lX\n",
+             ui_sector,
+             p_sdcard->ui_sector);
+
+    return 0xFE;
+  }
+
+  /* read sector (512 bytes) and place in buffer */
+  r = sdcard_send_command_frame_data_begin(0x51,
+                                           ui_sector >> 24 & 0xFF,
+                                           ui_sector >> 16 & 0xFF,
+                                           ui_sector >> 8 & 0xFF,
+                                           ui_sector & 0xFF,
+                                           0xFF);
+
+  /* updated sector index in memory */
+  if (r == 0) {
+    p_sdcard->ui_sector = ui_sector;
+  }
+
+  return r;
+}
+
+/*
   Initilise SPI and communicate with the sdcard to read basic
   information.
  */
@@ -254,8 +370,10 @@ uint8_t sdcard_init(SSDCard* const p_sdcard) {
   /* configure spi into master mode */
   spi_master_init();
 
-  /* send 80 clock pulses to sdcard */
-  for(i = 0; i < 10; i++) {
+  /* send < 80 clock pulses to sdcard, 512 bytes chosen to flush any
+     operation if a software reset occours during an SPI operation to
+     card */
+  for(i = 0; i < 512; i++) {
     spi_master_transmit(0xFF);
   }
 
@@ -268,6 +386,7 @@ uint8_t sdcard_init(SSDCard* const p_sdcard) {
   r = sdcard_send_command_frame(0x40, 0x00, 0x00, 0x00, 0x00, 0x95);
   printf_P("Reset result: %02X\n", r);
   if (r != 1) {
+    r = 1;
     goto end;
   }
 

@@ -2,7 +2,9 @@
 #define _SDCARD_FAT_H
 
 #include <stdint.h>
+
 #include "sdcard.h"
+#include "spi.h"
 
 typedef struct {
   SSDCard *p_sdcard;
@@ -25,6 +27,9 @@ typedef struct {
 
   /* cluster of the root directory */
   uint32_t ui_root_directory;
+
+  /* pre-caluclated offset of the start of the custers (in sectors) */
+  uint32_t ui_cluster_offset;
 
   /* fs identifiers */
   uint32_t ui_vol_id;
@@ -83,6 +88,82 @@ uint8_t fat32_file_open(SSDFATCard* const p_sdfatcard,
 /*
   reads a byte from the file, returns -1 on eof
 */
-int16_t fat32_file_read_byte(SSDFAT_File* const p_sdfile);
+/* int16_t fat32_file_read_byte(SSDFAT_File* const p_sdfile); */
+
+uint8_t fat32_chain_next(SSDFAT_Chain* p_chain);
+/*
+  reads a byte from the file, returns -1 on eof
+*/
+inline
+int16_t fat32_file_read_byte(SSDFAT_File* const p_sdfile) {
+  uint8_t r;
+
+  if (p_sdfile->ui_position >= p_sdfile->ui_file_size) {
+    return -1;
+  }
+
+  /* if position has passed end of sector, shift to next sector */
+  if (p_sdfile->ui_position >= 512) {
+    p_sdfile->ui_position -= 512;
+    p_sdfile->ui_file_size -= 512;
+    r = fat32_chain_next(&(p_sdfile->s_chain));
+    if (r != 0) {
+      /* printf_P("Failed to move to next sector: %02X\n", r); */
+      return -1;
+    }
+  } /* else { */
+  /*   /\* otherwise check data is in memory *\/ */
+  /*   r = fat32_cluster_read(p_sdfile->s_chain.p_sdfatcard, */
+  /*                          p_sdfile->s_chain.ui_cluster, */
+  /*                          p_sdfile->s_chain.ui_sector); */
+  /*   if (r != 0) { */
+  /*     /\* printf_P("Failed to read from card: %02X\n", r); *\/ */
+  /*     return -1; */
+  /*   } */
+  /* } */
+  return
+    p_sdfile->s_chain.p_sdfatcard->p_sdcard->
+      pch_sector[p_sdfile->ui_position++ % 512];
+}
+
+/*
+  reads a byte from the file using spi
+*/
+inline
+int16_t fat32_file_read_byte_spi(SSDFAT_File* const p_sdfile) {
+  uint8_t r;
+
+  if (p_sdfile->ui_position >= p_sdfile->ui_file_size) {
+    /* consume rest of sector */
+    while(p_sdfile->ui_position++ < 512) {
+      spi_master_transmit(0xFF);
+    }
+    /* end of sector reached, close spi */
+    sdcard_send_command_frame_data_end();
+
+    return -1;
+  }
+
+  /* if position has passed end of sector, shift to next sector */
+  if (p_sdfile->ui_position >= 512) {
+    p_sdfile->ui_position -= 512;
+    p_sdfile->ui_file_size -= 512;
+    r = fat32_chain_next(&(p_sdfile->s_chain));
+    if (r != 0) {
+      /* printf_P("Failed to move to next sector: %02X\n", r); */
+      return -1;
+    }
+  }
+
+  r = spi_master_transmit(0xFF);
+  p_sdfile->ui_position++;
+
+  /* end of sector reached, close spi */
+  if (p_sdfile->ui_position >= 512) {
+    sdcard_send_command_frame_data_end();
+  }
+
+  return r;
+}
 
 #endif

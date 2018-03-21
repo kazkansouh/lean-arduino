@@ -129,22 +129,28 @@ uint8_t fat32_init(SSDCard* const p_sdcard,
   }
   printf_P("VolLabel: %s\n", p_sdfatcard->pch_vol_label);
 
+  p_sdfatcard->ui_cluster_offset =
+    p_sdfatcard->p_sdcard->ui_partition_first_sector +
+    p_sdfatcard->ui_fat_offset +
+    p_sdfatcard->ui_fat_sectors * p_sdfatcard->ui_fat_count;
+
  end:
   return r;
 }
 
 /*
-  read a sector from a fat32 cluster
+  read a sector from a fat32 cluster, the caller is required to call
+  spi 512 times to read the whole sector. during invocation, the CS is
+  held high, if required it can be set low but its the callers
+  responsibility to set it high again to read data.
 */
 static
 uint8_t fat32_cluster_read(SSDFATCard* p_sdfatcard,
                            uint32_t ui_cluster,
                            uint8_t ui_sector) {
-  return sdcard_sector_read(
+  return sdcard_sector_read_begin(
     p_sdfatcard->p_sdcard,
-    p_sdfatcard->p_sdcard->ui_partition_first_sector +
-    p_sdfatcard->ui_fat_offset +
-    p_sdfatcard->ui_fat_sectors * p_sdfatcard->ui_fat_count +
+    p_sdfatcard->ui_cluster_offset +
     p_sdfatcard->ui_sectors_per_cluster * (ui_cluster - 2) +
     ui_sector);
 }
@@ -191,10 +197,6 @@ uint32_t fat32_cluster_lookup(SSDFATCard* p_sdfatcard, uint32_t ui_cluster) {
                   ui_sector_offset + 1,
                   ui_sector_offset + 2,
                   ui_sector_offset + 3);
-    /* = (uint32_t)(p_sdcard->pch_sector[ui_sector_offset]) */
-    /* | ((uint32_t)(p_sdcard->pch_sector[ui_sector_offset + 1]) << 8) */
-    /* | ((uint32_t)(p_sdcard->pch_sector[ui_sector_offset + 2]) << 16) */
-    /* | ((uint32_t)(p_sdcard->pch_sector[ui_sector_offset + 3]) << 24); */
 
   return ui_cluster_value;
 }
@@ -220,7 +222,7 @@ uint8_t fat32_chain_init(SSDFAT_Chain* const p_chain,
     return 0xFB;
   }
 
-  /* load directory sector into memory */
+  /* prepare to read identified sector */
   r = fat32_cluster_read(p_sdfatcard, ui_cluster, p_chain->ui_sector);
   if (r != 0) {
     return r;
@@ -230,9 +232,24 @@ uint8_t fat32_chain_init(SSDFAT_Chain* const p_chain,
 }
 
 /*
-  Read next sector in chain
+  Initialise a file system chain
 */
 static
+uint8_t fat32_chain_buffer(SSDFAT_Chain* const p_chain) {
+  /* read whole sector and save into internal buffer */
+  uint16_t i = 0;
+  for (i = 0; i < 512; i++) {
+     p_chain->p_sdfatcard->p_sdcard->pch_sector[i]
+       = spi_master_transmit(0xFF);
+  }
+
+  /* end of sector reached, close spi */
+  return sdcard_send_command_frame_data_end();
+}
+
+/*
+  Read next sector in chain
+*/
 uint8_t fat32_chain_next(SSDFAT_Chain* p_chain) {
   uint8_t r;
   /* if reached end of cluster, calculate next cluster */
@@ -248,6 +265,8 @@ uint8_t fat32_chain_next(SSDFAT_Chain* p_chain) {
         /* broken fat */
         print_P("Possibly broken FAT\n");
         return 0xFA;
+      } else {
+        printf_P("Cluster %lX has value %lX\n", p_chain->ui_cluster, p_chain->ui_next_cluster);
       }
     } else {
       /* end of chain */
@@ -255,7 +274,7 @@ uint8_t fat32_chain_next(SSDFAT_Chain* p_chain) {
     }
   }
 
-  /* load directory sector into memory */
+  /* prepare to read identified sector into memory */
   r = fat32_cluster_read(p_chain->p_sdfatcard,
                          p_chain->ui_cluster,
                          p_chain->ui_sector);
@@ -298,6 +317,9 @@ uint8_t fat32_directory_list(SSDFATCard* p_sdfatcard, uint32_t ui_cluster) {
   /* iterate over the sectors until end of directory (or end of
      cluster) is found */
   while (!b_end_of_directory && r == 0) {
+    /* buffer the sectors data into ram */
+    fat32_chain_buffer(&chain);
+
     for (ui_entry = 0; ui_entry < 512; ui_entry += 32) {
       /* check end of directory listing is not reached */
       if (pch_sector[ui_entry] == 0x00) {
@@ -496,6 +518,9 @@ uint8_t fat32_file_locate(SSDFATCard* const p_sdfatcard,
   /* iterate over the sectors until end of directory (or end of
      cluster) is found */
   while (!b_end_of_directory && r == 0) {
+    /* buffer sector into internal memory */
+    fat32_chain_buffer(&chain);
+
     for (ui_entry = 0; ui_entry < 512; ui_entry += 32) {
       /* check end of directory listing is not reached */
       if (pch_sector[ui_entry] == 0x00) {
@@ -659,38 +684,4 @@ uint8_t fat32_file_open(SSDFATCard* const p_sdfatcard,
   }
 
   return r;
-}
-
-/*
-  reads a byte from the file, returns -1 on eof
-*/
-int16_t fat32_file_read_byte(SSDFAT_File* const p_sdfile) {
-  uint8_t r;
-
-  if (p_sdfile->ui_position >= p_sdfile->ui_file_size) {
-    return -1;
-  }
-
-  /* if position has passed end of sector, shift to next sector */
-  if (p_sdfile->ui_position >= 512) {
-    p_sdfile->ui_position -= 512;
-    p_sdfile->ui_file_size -= 512;
-    r = fat32_chain_next(&(p_sdfile->s_chain));
-    if (r != 0) {
-      printf_P("Failed to move to next sector: %02X\n", r);
-      return -1;
-    }
-  } else {
-    /* otherwise check data is in memory */
-    r = fat32_cluster_read(p_sdfile->s_chain.p_sdfatcard,
-                           p_sdfile->s_chain.ui_cluster,
-                           p_sdfile->s_chain.ui_sector);
-    if (r != 0) {
-      printf_P("Failed to read from card: %02X\n", r);
-      return -1;
-    }
-  }
-  return
-    p_sdfile->s_chain.p_sdfatcard->p_sdcard->
-      pch_sector[p_sdfile->ui_position++ % 512];
 }
