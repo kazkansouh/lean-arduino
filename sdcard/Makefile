@@ -28,7 +28,8 @@ CFLAGS=\
 	-Werror\
 	-I$(LIBDIR)\
 	-DCHIP_SELECT=10\
-	-std=c99
+	-std=c99\
+	-DFILE_NAME=\"/music-44.1khz.u8bit.raw\"
 LD=avr-gcc
 LDFLAGS=-mmcu=atmega328p
 
